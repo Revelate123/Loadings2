@@ -1,0 +1,111 @@
+Name,FB2 - 3span
+Length,3.3
+Cantilever,True
+E,200.0
+b,90.0
+d,190.0
+Ix,986000000.0
+Ix_check,True
+Iy,3150000.0
+Iy_check,False
+P,1.08
+Cpe_V,0.9
+Cpi_V,0.0
+Cpe_H,0.7
+Cpi_H,0.5
+UDLS,2
+Load_case0,Floor
+G1M0,0.3
+G2M0,0.5
+QM0,5.0
+G1T0,0.0
+G2T0,0.0
+QT0,0.0
+WupT0,0.0
+WdownT0,0.0
+WOoPT0,0.0
+G1a0,0.0
+G2a0,0.0
+Qa0,0.0
+Wupa0,0.0
+Wdowna0,0.0
+WOoPa0,0.0
+G1b0,3.8
+G2b0,3.8
+Qb0,3.8
+Wupb0,3.8
+Wdownb0,3.8
+WOoPb0,3.8
+Load_case1,Self Weight
+G1M1,0.3
+G2M1,0.3
+QM1,0.0
+G1T1,1.0
+G2T1,1.0
+QT1,0.0
+WupT1,0.0
+WdownT1,0.0
+WOoPT1,0.0
+G1a1,0.0
+G2a1,0.0
+Qa1,0.0
+Wupa1,0.0
+Wdowna1,0.0
+WOoPa1,0.0
+G1b1,3.8
+G2b1,3.8
+Qb1,3.8
+Wupb1,3.8
+Wdownb1,3.8
+WOoPb1,3.8
+Point_loads,0
+Ex_Point_loads,0
+CLength,3.6
+CUDLS,1
+G1M0C,0.3
+G2M0C,0.3
+QM0C,5.0
+G1T0C,1.0
+G2T0C,1.0
+QT0C,1.0
+WupT0C,0.0
+WdownT0C,0.0
+WOoPT0C,0.0
+G1a0C,0.0
+G2a0C,0.0
+Qa0C,0.0
+Wupa0C,0.0
+Wdowna0C,0.0
+WOoPa0C,0.0
+G1b0C,3.6
+G2b0C,3.6
+Qb0C,3.6
+Wupb0C,0.0
+Wdownb0C,0.0
+WOoPb0C,0.0
+CPoint_loads,0
+CEx_Point_loads,4
+Ex0C,FB6A - 3span
+L/R0C,Right
+Exa0C,3.6
+Ex1C,FB6A - 3span
+L/R1C,Right
+Exa1C,0.5
+Ex2C,FB6A - 3span
+L/R2C,Left
+Exa2C,3.6
+Ex3C,FB6A - 3span
+L/R3C,Left
+Exa3C,0.5
+Graph,"(None, None)"
+SectionType,Universal_Beam
+SectionSize,610UB125
+segment length,1
+alpha_m,1
+restraint,FP
+load_height_position,Shear centre
+longitudinal_position,Within segment
+ends_with_restraint,One
+job_name,610UB125
+print_location,C:\Users\tduffett\PycharmProjects\pythonProject1
+Browse,

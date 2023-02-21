@@ -1,0 +1,29 @@
+xx
+
+Length:  7.4
+G:  0.5
+Q:  2
+Wsls:  0
+Trib Width:  2.5
+G Point:  0
+Q Point:  0
+Wsls Point:  0
+1.2G + 1.5Q:  9.0 kN/m
+1.35G:  1.6875 kN/m
+1.2G + 1.48Wsls:  1.5 kN/m
+Maximum UDL down:9.0 kN/m
+Maximum UDL up:0 kN/m
+Maximum point load down:  0.0
+Maximum point load up:  0.0
+Maximum positive Moment due to UDL:  61.605000000000004 kNm
+Maximum negative Moment due to UDL:  0.0 kNm
+Maximum shear due to UDL:  33.300000000000004 kN
+Maximum positive moment due to point load:0.0
+Maximum negative moment due to point load:0.0
+Maximum Shear due to point load:0.0
+
+Required Ix for G:  11871796.875000002 mm4
+
+Required Ix for phiQ:  23084049.479166668 mm4
+
+Required Ix for Wsls:  0.0 mm4
