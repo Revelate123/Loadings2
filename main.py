@@ -7,10 +7,12 @@ import scipy.special as special
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import matplotlib
 import pickle as pickle
 import PySimpleGUI as sg
 import csv
 import steel_functions as st
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 def Loads(G, Q, Wsls, Trib_width, Length, Glimit, Qlimit, Wlimit,Gpoint,Qpoint,Wpointsls, a):
 
@@ -179,7 +181,7 @@ class Load_Case:
             pass
         for i in range(int(self.Length*self.sample_rate + 1)):
             self.Moment[i] += -Moment[i]
-            self.Shear[i] += -Shear[i]
+            self.Shear[i] += Shear[i]
             self.Deflection[i] += -Deflection[i]
             self.Marea[i] += Marea[i]
         try:
@@ -214,7 +216,8 @@ class Load_Case:
                         y1a[0])
             for i in range(int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)):
                 if i == 0:
-                    pass
+                    Moment[i] = R1 * (i / self.sample_rate)
+                    Shear[i] = R1
                 elif i <= self.Length*self.sample_rate:
                     Moment[i] = R1*(i/self.sample_rate)
                     Shear[i] = R1
@@ -262,7 +265,11 @@ class Load_Case:
         R2 = P*a/self.Length
         for i in range(int(self.Length*self.sample_rate + 1)):
             if a == 0 or b == 0:
-                pass
+                Moment[i] = P * b * (i / self.sample_rate) / self.Length
+                Shear[i] = R1
+            elif b == 0:
+                Moment[i] = P * a * (self.Length - i / self.sample_rate) / self.Length
+                Shear[i] = -R2
             else:
                 if i < a*self.sample_rate:
                     Moment[i] = P*b*(i/self.sample_rate)/self.Length
@@ -275,8 +282,8 @@ class Load_Case:
                                 self.Length*2*(i/self.sample_rate) - a ** 2 - (i / self.sample_rate) ** 2) *10**6
         for i in range(int(self.Length*self.sample_rate + 1)):
             self.Moment[i] += -Moment[i]
-            self.Shear[i] += -Shear[i]
-            #self.Deflection[i] += Deflection[i]
+            self.Shear[i] += Shear[i]
+            self.Deflection[i] += -Deflection[i]
             self.Marea[i] += Marea[i]
         self.R1 += R1
         self.R2 += R2
@@ -434,9 +441,9 @@ def info(Name):
     except (OSError, IOError) as e:
         print('No info')
 
-def open_file(Name):
+def open_file(Name,Project):
     try:
-        with open(Name+'.pkl', 'rb') as inp:
+        with open(Project + '\\'+ Name+'.pkl', 'rb') as inp:
             foo = pickle.load(inp)
             return foo
     except (OSError, IOError) as e:
@@ -447,7 +454,7 @@ def Method(Name,Length,sample_rate,E,I,Iy,Loadings,Cpe_V,Cpi_V,Cpe_H,Cpi_H,P,val
     Name1 =  Beam(Name,Length,sample_rate,E,I,Iy,Loadings,Cpe_V,Cpi_V,Cpe_H,Cpi_H,P,values,Cantilever)
     Name1.LoadCase(Loadings,Cantilever)
     Checks(Name1)
-    with open(Name+'.pkl','wb') as outp:
+    with open(values['Project']+'\\'+Name+'.pkl','wb') as outp:
         pickle.dump(Name1,outp,pickle.HIGHEST_PROTOCOL)
 
 Name = 'FB3'
@@ -459,8 +466,8 @@ E = 12*10**9
 Cpe = 0.9
 Cpi = 0.3
 p = 1.28
-L1 = open_file('L1')
-L2 = open_file('L2')
+#L1 = open_file('L1',values['Project'])
+#L2 = open_file('L2',values['Project'])
 G1 = [[[0,Length,0.2*Trib]]]
 G2 = [[[0,Length,0.5*Trib]]]
 Q = [[[0,Length,1.5*Trib]]]
@@ -598,7 +605,10 @@ def Cantilever_Layout(variable):
     Layout += [[sg.Text('Existing point loads'),
                 sg.Input(key='CEx_Point_loads', default_text=int(float(KeyCheck(variable, 'CEx_Point_loads'))), enable_events=True,
                          size=(5, 1))]]
-    directory = os.fsencode(os.getcwd())
+    try:
+        directory = KeyCheck(variable,'Project')
+    except:
+        directory = os.fsencode(os.getcwd())
     existing = []
     for file in os.listdir(directory):
         filename = os.fsdecode(file)
@@ -623,38 +633,279 @@ def Cantilever_Layout(variable):
         except:
             Ex_Point_loads = 0
     return Layout
+def delete_figure_agg(figure_agg):
+    figure_agg.get_tk_widget().forget()
+    plt.close('all')
+def draw_figure(canvas, figure):
+    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+    figure_canvas_agg.draw()
+    figure_canvas_agg.get_tk_widget().pack(side='top', fill='both', expand=1)
+    return figure_canvas_agg
+
+def draw_graph(Beam):
+
+    #fig = plt.figure(figsize=(12,30),dpi=80)
+    fig = matplotlib.figure.Figure(figsize=(12,30),dpi=80)
+    try:
+        Length = np.arange(0,Beam.Length + Beam.values['CLength']+ 1/Beam.sample_rate,1/Beam.sample_rate)
+        Zeros = [0]*(int(Beam.Length + Beam.values['CLength'])*Beam.sample_rate+1)
+    except:
+        Length =  np.arange(0,Beam.Length + 1/Beam.sample_rate,1/Beam.sample_rate)
+        Zeros = [0] * (int(Beam.Length) * Beam.sample_rate+1)
+
+    G_12_M = [1.2 * i for i in getattr(Beam, 'G2').Moment]
+    Q_15_M = [1.5 * i for i in getattr(Beam, 'Q').Moment]
+    ULS_M = [x + y for x, y in zip(G_12_M, Q_15_M)]  # 1.2G + 1.5Q
+
+    G_12_S = [1.2 * i for i in getattr(Beam, 'G2').Shear]
+    Q_15_S = [1.5 * i for i in getattr(Beam, 'Q').Shear]
+    ULS_S = [x + y for x, y in zip(G_12_S, Q_15_S)]  # 1.2G + 1.5Q
+    ULS_Wup_M = [0.9 * x - y for x, y in zip(getattr(Beam, 'G1').Moment, getattr(Beam, 'Wup').Moment)]
+
+    ULS_Wup_S = [0.9 * x - y for x, y in zip(getattr(Beam, 'G1').Shear, getattr(Beam, 'Wup').Shear)]
+
+    ULS_Wdown_M = [x + y for x, y in zip(G_12_M, getattr(Beam, 'Wdown').Moment)]
+    ULS_Wdown_S = [x + y for x, y in zip(G_12_S, getattr(Beam, 'Wdown').Shear)]
+    G_135_M = [1.35 * i for i in getattr(Beam, 'G2').Moment]
+    G_135_S = [1.35 * i for i in getattr(Beam, 'G2').Shear]
+
+    ax1 = fig.add_subplot(10,2,1)
+    ax1.set_ylabel('Moment [KNm]')
+    ax1.set_xlabel('Length [m]')
+    ax1.set_title('1.2G + 1.5Q MOMENT')
+    ax1.plot(Length,ULS_M)
+    ax1.text(0,-abs(1/10*max(ULS_M,key=abs)),str(round(1.2*Beam.G2.R1 + 1.5*Beam.Q.R1,1))+'KN',verticalalignment='top',horizontalalignment='center')
+    ax1.text(Beam.Length, -abs(1 / 10 * max(ULS_M, key=abs)), str(round(1.2 * Beam.G2.R2 + 1.5 * Beam.Q.R2, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax1.plot([0,Beam.Length],[0,0],'g',marker=6,markersize=15)
+    try:
+        ax1.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0],'g')
+    except:
+       pass
+
+    ax2 = fig.add_subplot(10,2,2)
+    ax2.set_ylabel('Shear [KNm]')
+    ax2.set_xlabel('Length [m]')
+    ax2.set_title('1.2G + 1.5Q Shear')
+    ax2.plot(Length, ULS_S,'b')
+    ax2.text(0, -abs(1 / 10 * max(ULS_S, key=abs)), str(round(1.2 * Beam.G2.R1 + 1.5 * Beam.Q.R1, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax2.text(Beam.Length, -abs(1 / 10 * max(ULS_S, key=abs)), str(round(1.2 * Beam.G2.R2 + 1.5 * Beam.Q.R2, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax2.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax2.plot([0,0],[0,ULS_S[0]],'b')
+    ax2.plot([Length[-1],Length[-1]],[0,ULS_S[-1]],'b')
+    try:
+        ax2.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+    ax1a = fig.add_subplot(10, 2, 3)
+    ax1a.set_ylabel('Moment [KNm]')
+    ax1a.set_xlabel('Length [m]')
+    ax1a.set_title('1.2G + Wdown MOMENT')
+    ax1a.plot(Length, ULS_Wdown_M)
+    ax1a.text(0, -abs(1 / 10 * max(ULS_Wdown_M, key=abs)), str(round(1.2 * Beam.G2.R1 +  Beam.Wdown.R1, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax1a.text(Beam.Length, -abs(1 / 10 * max(ULS_Wdown_M, key=abs)), str(round(1.2 * Beam.G2.R2 +  Beam.Wdown.R2, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax1a.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    try:
+        ax1a.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax2a = fig.add_subplot(10, 2, 4)
+    ax2a.set_ylabel('Shear [KNm]')
+    ax2a.set_xlabel('Length [m]')
+    ax2a.set_title('1.2G + Wdown Shear')
+    ax2a.plot(Length, ULS_Wdown_S,'b')
+    ax2a.text(0, -abs(1 / 10 * max(ULS_Wdown_S, key=abs)), str(round(1.2 * Beam.G2.R1 + Beam.Wdown.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax2a.text(Beam.Length, -abs(1 / 10 * max(ULS_Wdown_S, key=abs)), str(round(1.2 * Beam.G2.R2 + Beam.Wdown.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax2a.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax2a.plot([0, 0], [0, ULS_Wdown_S[0]], 'b')
+    ax2a.plot([Length[-1], Length[-1]], [0, ULS_Wdown_S[-1]], 'b')
+    try:
+        ax2a.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax1b = fig.add_subplot(10, 2, 5)
+    ax1b.set_ylabel('Moment [KNm]')
+    ax1b.set_xlabel('Length [m]')
+    ax1b.set_title('1.35G MOMENT')
+    ax1b.plot(Length, G_135_M)
+    ax1b.text(0, -abs(1 / 10 * max(G_135_M, key=abs)), str(round(1.35 * Beam.G2.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax1b.text(Beam.Length, -abs(1 / 10 * max(G_135_M, key=abs)),
+              str(round(1.35 * Beam.G2.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax1b.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    try:
+        ax1b.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax2b = fig.add_subplot(10, 2, 6)
+    ax2b.set_ylabel('Shear [KNm]')
+    ax2b.set_xlabel('Length [m]')
+    ax2b.set_title('1.35G Shear')
+    ax2b.plot(Length,G_135_S,'b')
+    ax2b.text(0, -abs(1 / 10 * max(G_135_S, key=abs)), str(round(1.35 * Beam.G2.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax2b.text(Beam.Length, -abs(1 / 10 * max(G_135_S, key=abs)),
+              str(round(1.35 * Beam.G2.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax2b.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax2b.plot([0, 0], [0, G_135_S[0]], 'b')
+    ax2b.plot([Length[-1], Length[-1]], [0, G_135_S[-1]], 'b')
+    try:
+        ax2b.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax3a = fig.add_subplot(10, 2, 7)
+    ax3a.set_ylabel('Deflection [mm]')
+    ax3a.set_xlabel('Length [m]')
+    ax3a.set_title('G1 Deflection')
+    ax3a.plot(Length, getattr(Beam.G1, 'Deflection'))
+    ax3a.text(0, -abs(1 / 10 * max(getattr(Beam.G1, 'Deflection'), key=abs)), str(round(Beam.G1.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax3a.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.G1, 'Deflection'), key=abs)),
+              str(round(Beam.G1.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax3a.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax3a.plot([0, Beam.Length], [Beam.Length/0.36, Beam.Length/0.36], linestyle=(0, (5, 10)),color = 'red')
+    ax3a.plot([0, Beam.Length], [-Beam.Length / 0.36, -Beam.Length / 0.36], linestyle=(0, (5, 10)),color = 'red')
+    ax3a.plot([Beam.Length, max(Length)], [(max(Length)-Beam.Length) / 0.18, (max(Length)-Beam.Length) / 0.18], linestyle=(0, (5, 10)),color = 'red')
+    ax3a.plot([Beam.Length, max(Length)], [-(max(Length)-Beam.Length)/ 0.18, -(max(Length)-Beam.Length) / 0.18], linestyle=(0, (5, 10)),color = 'red')
+    try:
+        ax3a.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax3 = fig.add_subplot(10, 2, 8)
+    ax3.set_ylabel('Deflection [mm]')
+    ax3.set_xlabel('Length [m]')
+    ax3.set_title('G2 Deflection')
+    ax3.plot(Length, getattr(Beam.G2,'Deflection'))
+    ax3.text(0, -abs(1 / 10 * max(getattr(Beam.G2, 'Deflection'), key=abs)), str(round(Beam.G2.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax3.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.G2, 'Deflection'), key=abs)),
+              str(round(Beam.G2.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax3.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax3.plot([0, Beam.Length], [Beam.Length / 0.36, Beam.Length / 0.36],linestyle=(0, (5, 10)),color = 'red')
+    ax3.plot([0, Beam.Length], [-Beam.Length / 0.36, -Beam.Length / 0.36], linestyle=(0, (5, 10)),color = 'red')
+    ax3.plot([Beam.Length, max(Length)], [(max(Length)-Beam.Length)  / 0.18, (max(Length)-Beam.Length)  / 0.18], linestyle=(0, (5, 10)),color = 'red')
+    ax3.plot([Beam.Length, max(Length)], [-(max(Length)-Beam.Length)  / 0.18, -(max(Length)-Beam.Length)  / 0.18], linestyle=(0, (5, 10)),color = 'red')
+    try:
+        ax3.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax4 = fig.add_subplot(10, 2, 9)
+    ax4.set_ylabel('Deflection [mm]')
+    ax4.set_xlabel('Length [m]')
+    ax4.set_title('Q Deflection')
+    ax4.plot(Length, getattr(Beam.Q, 'Deflection'))
+    ax4.text(0, -abs(1 / 10 * max(getattr(Beam.Q, 'Deflection'), key=abs)), str(round(Beam.Q.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax4.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.Q, 'Deflection'), key=abs)),
+              str(round(Beam.Q.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax4.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax4.plot([0, Beam.Length], [Beam.Length / 0.25, Beam.Length / 0.25], linestyle=(0, (5, 10)),color = 'red')
+    ax4.plot([0, Beam.Length], [-Beam.Length / 0.25, -Beam.Length / 0.25], linestyle=(0, (5, 10)),color = 'red')
+    ax4.plot([Beam.Length, max(Length)], [(max(Length)-Beam.Length)  / 0.125, (max(Length)-Beam.Length)  / 0.125], linestyle=(0, (5, 10)),color = 'red')
+    ax4.plot([Beam.Length, max(Length)], [-(max(Length)-Beam.Length)  / 0.125, -(max(Length)-Beam.Length)  / 0.125], linestyle=(0, (5, 10)),color = 'red')
+    try:
+        ax4.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    ax5 = fig.add_subplot(10, 2, 10)
+    ax5.set_ylabel('Deflection [mm]')
+    ax5.set_xlabel('Length [m]')
+    ax5.set_title('Wind Down Deflection')
+    ax5.plot(Length, getattr(Beam.Wdown, 'Deflection'))
+    ax5.text(0, -abs(1 / 10 * max(getattr(Beam.Wdown, 'Deflection'), key=abs)), str(round(Beam.Wdown.R1, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax5.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.Wdown, 'Deflection'), key=abs)),
+              str(round(Beam.Wdown.R2, 1)) + 'KN',
+              verticalalignment='top', horizontalalignment='center')
+    ax5.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax5.plot([0, Beam.Length], [Beam.Length / 0.15, Beam.Length / 0.15], linestyle=(0, (5, 10)),color = 'red')
+    ax5.plot([0, Beam.Length], [-Beam.Length / 0.15, -Beam.Length / 0.15], linestyle=(0, (5, 10)),color = 'red')
+    ax5.plot([Beam.Length, max(Length)], [(max(Length)-Beam.Length)  / 0.075, (max(Length)-Beam.Length)  / 0.075], linestyle=(0, (5, 10)),color = 'red')
+    ax5.plot([Beam.Length, max(Length)], [-(max(Length)-Beam.Length)  / 0.075, -(max(Length)-Beam.Length)  / 0.075], linestyle=(0, (5, 10)),color = 'red')
+    try:
+        ax5.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+
+    fig.tight_layout()
+    return fig
 def Layouts(variable):
+    from openpyxl import load_workbook
+
+    wb = load_workbook(filename='Steel Design Calculator.xlsx')
+    # SectionType = wb.sheetnames
+    SectionSize = []
+    # print(sheet_ranges['A6'].value)
+    SectionType = ['Universal_Beam', 'Universal_Column', 'PFC', 'RHS', 'SHS', 'CHS', 'MGP10','MGP12']
+    for j in wb['Universal_Beam']:
+        SectionSize.append(j[0].value)
+    SectionSize = list(filter(lambda item: item is not None, SectionSize))
+
+    for j1 in range(4):
+        SectionSize.pop(0)
+
     Layout = [[sg.Column([
         [sg.Text('Name')],
         [sg.Text('Length')],
         [sg.Text('E')],
-        [sg.Text('b')],
-        [sg.Text('d')],
+        [sg.Text('Choose Section Type:')],
+        [sg.Text('Choose Section Size:')],
+        #[sg.Text('b')],
+        #[sg.Text('d')],
         [sg.Text('Ix')],
         [sg.Text('Iy')]
         ]),sg.Column([
             [sg.Input(size=(10,1),default_text=KeyCheck(variable,'Name'),enable_events=True,key='Name'),sg.Button('Reload Existing',key='Reload')],
             [sg.Input(size=(10,1),default_text=KeyCheck(variable,'Length'),enable_events=True,key='Length'),sg.Checkbox('Cantilever',default=KeyCheck(variable,'Cantilever'),key='Cantilever',enable_events=True)],
-            [sg.Input(size=(10,1),default_text=KeyCheck(variable,'E'),enable_events=True,key='E')],
-            [sg.Input(size=(10,1),default_text=KeyCheck(variable,'b'),enable_events=True,key='b')],
-            [sg.Input(size=(10,1),default_text=KeyCheck(variable,'d'),enable_events=True,key='d')],
+            [sg.Input(size=(10,1),default_text=KeyCheck(variable,'E'),enable_events=True,key='E'),sg.Checkbox('Override for E',default=KeyCheck(variable,'E_check'),key='E_check',enable_events=True)],
+            [sg.Combo(SectionType, key='SectionType', enable_events=True, default_value=KeyCheck(variable,'SectionType'), size=(30, 1))],  #SectionType[0]
+            [sg.Combo(SectionSize, key='SectionSize',enable_events=True, default_value=KeyCheck(variable, 'SectionSize'), size=(30, 1))],  # SectionSize[0]
+            #[sg.Input(size=(10,1),default_text=KeyCheck(variable,'b'),enable_events=True,key='b')],
+            #[sg.Input(size=(10,1),default_text=KeyCheck(variable,'d'),enable_events=True,key='d')],
             [sg.Input(size=(10,1),default_text=KeyCheck(variable,'Ix'),enable_events=True,key='Ix'),sg.Checkbox('Override for Ix',default=KeyCheck(variable,'Ix_check'),key = 'Ix_check',enable_events=True)],
             [sg.Input(size=(10, 1), default_text=KeyCheck(variable, 'Iy'), enable_events=True, key='Iy'),sg.Checkbox('Override for Iy',default=KeyCheck(variable,'Iy_check'),key = 'Iy_check',enable_events=True)]
-        ]),sg.Column([
+        ]),sg.Column([[sg.Text('Current Project')],
         [sg.Text('Base Wind pressure:')],
         [sg.Text('Vertical Cp,e:')],
         [sg.Text('Vertical Cp,i:')],
         [sg.Text('Horizontal Cp,e:')],
         [sg.Text('Horizontal Cp,i:')]
-    ]),
-    sg.Column([
+    ],vertical_alignment='t'),
+    sg.Column([[sg.Input(key='Project',default_text=KeyCheck(variable,'Project'),enable_events=True),sg.FolderBrowse('Change Project')],
         [sg.Input(size=(5, 1), default_text=KeyCheck(variable, 'P'), enable_events=True, key='P')],
         [sg.Input(size=(5,1),default_text=KeyCheck(variable,'Cpe_V'),enable_events=True,key='Cpe_V')],
         [sg.Input(size=(5, 1), default_text=KeyCheck(variable, 'Cpi_V'), enable_events=True, key='Cpi_V')],
         [sg.Input(size=(5, 1), default_text=KeyCheck(variable, 'Cpe_H'), enable_events=True, key='Cpe_H')],
         [sg.Input(size=(5, 1), default_text=KeyCheck(variable, 'Cpi_H'), enable_events=True, key='Cpi_H')]
 
-    ])],
+    ],vertical_alignment='t')],
     [sg.Text('Number of UDL\'s'),sg.Input(default_text=int(float(KeyCheck(variable,'UDLS'))),key='UDLS',enable_events=True,size=(5,1))]
     ]
     try:
@@ -747,18 +998,32 @@ def Layouts(variable):
     Layout += [[sg.Text('Existing point loads'),
                 sg.Input(key='Ex_Point_loads', default_text=int(float(KeyCheck(variable, 'Ex_Point_loads'))), enable_events=True,
                          size=(5, 1))]]
-    directory = os.fsencode(os.getcwd())
-    existing = []
-    for file in os.listdir(directory):
-        filename = os.fsdecode(file)
-        if filename.endswith(".pkl"):
-            filename = os.path.basename(filename)
-            filename = os.path.splitext(filename)[0]
-            if filename != KeyCheck(variable,'Name'):
-                existing += [filename]
-            continue
-        else:
-            continue
+    try:
+        directory = KeyCheck(variable,'Project')
+        existing = []
+        for file in os.listdir(directory):
+            filename = os.fsdecode(file)
+            if filename.endswith(".pkl"):
+                filename = os.path.basename(filename)
+                filename = os.path.splitext(filename)[0]
+                if filename != KeyCheck(variable,'Name'):
+                    existing += [filename]
+                continue
+            else:
+                continue
+    except:
+        directory = os.fsencode(os.getcwd())
+        existing = []
+        for file in os.listdir(directory):
+            filename = os.fsdecode(file)
+            if filename.endswith(".pkl"):
+                filename = os.path.basename(filename)
+                filename = os.path.splitext(filename)[0]
+                if filename != KeyCheck(variable, 'Name'):
+                    existing += [filename]
+                continue
+            else:
+                continue
     try:
         Ex_Point_loads = int(float(KeyCheck(variable, 'Ex_Point_loads')))
     except:
@@ -772,15 +1037,15 @@ def Layouts(variable):
             Ex_Point_loads = 0
 
     Layout += [[sg.Column([
-        [sg.Text('Hello') for i in range(Point_loads)]
-    ])],[sg.Button('Calculate',key = 'Calculate')]]
+        [sg.Button('Calculate',key = 'Calculate')],
+    [sg.Text(key='Output')]
+    ])]]
     if KeyCheck(variable,'Cantilever') == True:
-        Layout = [[sg.Column([[sg.Column(Layout),sg.VSeparator(),sg.Column(Cantilever_Layout(variable)),sg.VSeparator(),sg.Graph(enable_events=True,key='Graph', graph_bottom_left=(0, -200), graph_top_right=(400, 200),canvas_size=(400,400)),sg.VSeparator(),sg.Column(steel_calculator())]],scrollable=True,expand_x=True,expand_y=True)]]
+        Layout = [[sg.Column([[sg.Column(Layout,vertical_alignment='t'),sg.VSeparator(),sg.Column(Cantilever_Layout(variable),vertical_alignment='t'),sg.VSeparator(),sg.Column([[sg.Canvas(key='ULSGraph',size=(1200,2500))]],vertical_alignment='t'),sg.VSeparator(),sg.Column(steel_calculator(),vertical_alignment='t')]],scrollable=True,expand_x=True,expand_y=True)]]
     else:
-        Layout = [[sg.Column([[sg.Column(Layout,scrollable=True,vertical_scroll_only=True,expand_y=True), sg.VSeparator(),sg.Graph(enable_events=True,key='Graph', graph_bottom_left=(0, -200), graph_top_right=(400, 200),canvas_size=(400,400)),sg.VSeparator(),
-                   sg.Column(steel_calculator())]],scrollable=True,expand_x=True,expand_y=True)]]
+        Layout = [[sg.Column([[sg.Column(Layout,vertical_alignment='t'), sg.VSeparator(),sg.Column([[sg.Canvas(key='ULSGraph',size=(1200,2500))]],vertical_alignment='t'),sg.VSeparator(),
+                   sg.Column(steel_calculator(),vertical_alignment='t')]],scrollable=True,expand_x=True,expand_y=True)]]
     window = sg.Window('Window',Layout,resizable=True).finalize()
-    graph = window['Graph']
     window.Maximize()
     from openpyxl import load_workbook
 
@@ -795,6 +1060,7 @@ def Layouts(variable):
     print(SectionSize)
     for j1 in range(4):
         SectionSize.pop(0)
+    fig_canvas_agg = None
     while True:
         event,values = window.read()
         if event == sg.WINDOW_CLOSED or event == 'Quit':
@@ -830,6 +1096,10 @@ def Layouts(variable):
                 variable['WOoPb' + str(i)] = values['Length']
             Layouts(variable)
         if event == 'Calculate':
+            variable_write(values, 'Loading')
+            if fig_canvas_agg:
+                delete_figure_agg(fig_canvas_agg)
+            plt.close('all')
             G1U = []
             G2U = []
             QU = []
@@ -865,7 +1135,7 @@ def Layouts(variable):
                 WdownP += [[values['WdownPa' + str(i)], values['WdownP' + str(i)]]]
                 WOoPP += [[values['WOoPPa' + str(i)], values['WOoPP' + str(i)]]]
             for i in range(Ex_Point_loads):
-                Beam = open_file(values['Ex'+str(i)])
+                Beam = open_file(values['Ex'+str(i)],values['Project'])
                 if values['L/R'+str(i)] == 'Left':
                     G1P += [[values['Exa' + str(i)],Beam.G1.R1]]
                     G2P += [[values['Exa' + str(i)],Beam.G2.R1]]
@@ -881,48 +1151,62 @@ def Layouts(variable):
                     WdownP += [[values['Exa' + str(i)],Beam.Wdown.R2]]
                     WOoPP += [[values['Exa' + str(i)],Beam.WOoP.R2]]
             Loadings = {'G1': [G1U,G1P], 'G2': [G2U,G2P], 'Q': [QU,QP], 'Wup': [WupU,WupP], 'Wdown': [WdownU,WdownP], 'WOoP': [WOoPU,WOoPP]}
-            b = values['b']
-            d = values['d']
             if values['Ix_check'] == False:
-                Ix = b * d ** 3 / 12 * 10 ** -12
+                try:
+                    SectionType1 = values['SectionType']
+                    SectionSize1 = values['SectionSize']
+                    section_properties = st.section_properties(SectionType1, SectionSize1, 0, 0, 0)
+                    Ix = section_properties['Ix'] * 10 **-12
+                except:
+                    MGP10 = {'90x90':[90,90],'140x90':[140,90],'190x90':[190,90],'240x90':[240,90],'300x90':[300,90]}
+                    Timber = MGP10[values['SectionSize']]
+                    Ix = Timber[0]*Timber[1]**3/12 * 10 **-12
             else:
                 Ix = values['Ix']*10**-12
             if values['Iy_check'] == False:
-                Iy = d * b ** 3 / 12 * 10 ** -12
+                try:
+                    SectionType1 = values['SectionType']
+                    SectionSize1 = values['SectionSize']
+                    section_properties = st.section_properties(SectionType1, SectionSize1, 0, 0, 0)
+                    Iy = section_properties['Iy'] * 10 **-12
+                except:
+                    MGP10 = {'90x90': [90, 90], '140x90': [140, 90], '190x90': [190, 90], '240x90': [240, 90],
+                             '300x90': [300, 90]}
+                    Timber = MGP10[values['SectionSize']]
+                    Iy = Timber[1] * Timber[0] ** 3 / 12 * 10 ** -12
             else:
                 Iy = values['Iy']*10**-12
-            if values['Cantilever'] == False:
-                Method(values['Name'], values['Length'], 100, values['E']*10**9, Ix, Iy, Loadings,values['Cpe_V'],values['Cpi_V'],values['Cpe_H'],values['Cpi_H'],values['P'],values,0)
-            elif values['Cantilever'] == True:
-                CG1U = []
-                CG2U = []
-                CQU = []
-                CWupU = []
-                CWdownU = []
-                CWOoPU = []
-                CG1P = []
-                CG2P = []
-                CQP = []
-                CWupP = []
-                CWdownP = []
-                CWOoPP = []
+
+            CG1U = []
+            CG2U = []
+            CQU = []
+            CWupU = []
+            CWdownU = []
+            CWOoPU = []
+            CG1P = []
+            CG2P = []
+            CQP = []
+            CWupP = []
+            CWdownP = []
+            CWOoPP = []
+            try:
+                CUDLS = int(float(KeyCheck(variable, 'CUDLS')))
+            except:
+                CUDLS = 1
+            try:
+                CPoint_loads = int(float(KeyCheck(variable, 'CPoint_loads')))
+            except:
+                CPoint_loads = 1
+            try:
+                CEx_Point_loads = int(float(KeyCheck(variable, 'CEx_Point_loads')))
+            except:
+                CEx_Point_loads = 1
+            for i in values:
                 try:
-                    CUDLS = int(float(KeyCheck(variable, 'CUDLS')))
+                    values[i] = float(values[i])
                 except:
-                    CUDLS = 1
-                try:
-                    CPoint_loads = int(float(KeyCheck(variable, 'CPoint_loads')))
-                except:
-                    CPoint_loads = 1
-                try:
-                    CEx_Point_loads = int(float(KeyCheck(variable, 'CEx_Point_loads')))
-                except:
-                    CEx_Point_loads = 1
-                for i in values:
-                    try:
-                        values[i] = float(values[i])
-                    except:
-                        print(values[i])
+                    print(values[i])
+            try:
                 for i in range(CUDLS):
                     i = str(i) + 'C'
                     CG1U += [[values['G1a' + str(i)], values['G1b' + str(i)],
@@ -948,7 +1232,7 @@ def Layouts(variable):
                     CWOoPP += [[values['WOoPPa' + str(i)], values['WOoPP' + str(i)]]]
                 for i in range(CEx_Point_loads):
                     i = str(i) + 'C'
-                    Beam = open_file(values['Ex' + str(i)])
+                    Beam = open_file(values['Ex' + str(i)],values['Project'])
                     if values['L/R' + str(i)] == 'Left':
                         CG1P += [[values['Exa' + str(i)], Beam.G1.R1]]
                         CG2P += [[values['Exa' + str(i)], Beam.G2.R1]]
@@ -965,32 +1249,97 @@ def Layouts(variable):
                         CWOoPP += [[values['Exa' + str(i)], Beam.WOoP.R2]]
                 Cantilever = {'G1': [CG1U, CG1P], 'G2': [CG2U, CG2P], 'Q': [CQU, CQP], 'Wup': [CWupU, CWupP],
                                 'Wdown': [CWdownU, CWdownP], 'WOoP': [CWOoPU, CWOoPP]}
-                Method(values['Name'], values['Length'], 100, values['E'] * 10 ** 9, Ix, Iy, Loadings,
-                           values['Cpe_V'], values['Cpi_V'], values['Cpe_H'], values['Cpi_H'], values['P'], values,Cantilever)
-            Beam1 = open_file(values['Name'])
-            print(getattr(Beam1,'Loadings'))
-            Abs = abs(max(Beam1.G1.Shear,key=abs))
-            graph.DrawLine((0,0),(400,0))
-            for i in range(int(Beam1.Length*Beam1.sample_rate)):
-                graph.DrawPoint((i/int(Beam1.Length*Beam1.sample_rate)*400,Beam1.G1.Shear[i]/Abs*180))
+            except:
+                Cantilever = 0
+            if values['E_check'] == True:
+                E = values['E']
+            else:
+                if values['SectionType'] == 'MGP10':
+                    E = 10*10**9
+                elif values['SectionType'] == 'MGP12':
+                    E = 12.7 * 10 **9
+                else:
+                    E = 200*10**9
+            Method(values['Name'], values['Length'], 100, E, Ix, Iy, Loadings,
+                       values['Cpe_V'], values['Cpi_V'], values['Cpe_H'], values['Cpi_H'], values['P'], values,Cantilever)
+
+            Beam1 = open_file(values['Name'],values['Project'])
+            fig_canvas_agg = draw_figure(window['ULSGraph'].TKCanvas,draw_graph(Beam1))
+            try:
+
+                G_12_M = [1.2 * i for i in getattr(Beam1, 'G2').Moment]
+                Q_15_M = [1.5 * i for i in getattr(Beam1, 'Q').Moment]
+                ULS_M = [x + y for x, y in zip(G_12_M, Q_15_M)]  # 1.2G + 1.5Q
+
+                G_12_S = [1.2 * i for i in getattr(Beam1, 'G2').Shear]
+                Q_15_S = [1.5 * i for i in getattr(Beam1, 'Q').Shear]
+                ULS_S = [x + y for x, y in zip(G_12_S, Q_15_S)]  # 1.2G + 1.5Q
+                ULS_Wup_M = [0.9 * x - y for x, y in zip(getattr(Beam1, 'G1').Moment, getattr(Beam1, 'Wup').Moment)]
+
+                ULS_Wup_S = [0.9 * x - y for x, y in zip(getattr(Beam1, 'G1').Shear, getattr(Beam1, 'Wup').Shear)]
+
+                ULS_Wdown_M = [x + y for x, y in zip(G_12_M, getattr(Beam1, 'Wdown').Moment)]
+                ULS_Wdown_S = [x + y for x, y in zip(G_12_S, getattr(Beam1, 'Wdown').Shear)]
+                G_135_M = [1.35 * i for i in getattr(Beam1, 'G2').Moment]
+                G_135_S = [1.35 * i for i in getattr(Beam1, 'G2').Shear]
+                String = 'In-Plane\n' + 'The Maximum Moment is: ' + str(round(max(max(ULS_M, key=abs), max(G_135_M, key=abs), max(ULS_Wup_M, key=abs),
+                                max(ULS_Wdown_M, key=abs), key=abs), 2)) + ' KNm\n'
+                String += 'The Maximum Shear is: ' + str(round(max(max(ULS_S, key=abs), max(G_135_S, key=abs), max(ULS_Wup_S, key=abs),
+                                max(ULS_Wdown_S, key=abs), key=abs), 2)) + ' KN\n'
+
+
+                String += '\nMaximum R1 = ' + str(round(
+                    max(getattr(Beam1, 'G1').R1, getattr(Beam1, 'G2').R1, getattr(Beam1, 'Q').R1, getattr(Beam1, 'Wup').R1,
+                        getattr(Beam1, 'Wdown').R1, getattr(Beam1, 'WOoP').R1, key=abs), 2))
+                String += '\nMaximum R2 = ' + str(round(
+                    max(getattr(Beam1, 'G1').R2, getattr(Beam1, 'G2').R2, getattr(Beam1, 'Q').R2, getattr(Beam1, 'Wup').R2,
+                        getattr(Beam1, 'Wdown').R2), 2))
+                String += '\nThe maximum Deflection for G is: ' + str(round(
+                    max(max(getattr(Beam1, 'G2').Deflection, key=abs), max(getattr(Beam1, 'G1').Deflection, key=abs),
+                        key=abs), 2)) + 'mm L/300 = ' + str(Beam1.Length / 0.3)
+                String += '\nThe maximum Deflection for Q is: ' + str(round(max(getattr(Beam1, 'Q').Deflection, key=abs), 2)) + 'mm L/250 = ' + str(Beam1.Length / 0.250)
+                window['Output'].update(String)
+                print('The maximum Deflection for Wup is: ',
+                      round(0.7 * max(getattr(Beam, 'Wup').Deflection, key=abs), 2),
+                      'mm L/150 = ', Beam.Length / 0.150)
+                print('The maximum Deflection for Wdown is: ',
+                      round(0.7 * max(getattr(Beam, 'Wdown').Deflection, key=abs), 2), 'mm L/150 = ',
+                      Beam.Length / 0.150)
+
+                getattr(Beam, 'WOoP')
+                print('\nOut-of-Plane')
+                print('The maximum Moment Out of plane is: ', round(max(getattr(Beam, 'WOoP').Moment, key=abs), 2),
+                      'KNm')
+                print('The maximum Shear Out of plane is: ', round(max(getattr(Beam, 'WOoP').Shear, key=abs), 2), 'KN')
+                print('The maximum Deflection Out of plane is: ',
+                      round(0.7 * max(getattr(Beam, 'WOoP').Deflection, key=abs), 2), 'mm L/150 =', Beam.Length / 0.150)
+
+            except:
+                print('ERROR')
+
+
             #print(Beam1.Loadings)
         if event == 'Reload':
-            directory = os.fsencode(os.getcwd())
-            existing = []
-            for file in os.listdir(directory):
-                filename = os.fsdecode(file)
-                if filename.endswith(".pkl"):
-                    filename = os.path.basename(filename)
-                    filename = os.path.splitext(filename)[0]
-                    existing += [filename]
-                    continue
-                else:
-                    continue
+            try:
+                directory = KeyCheck(variable,'Project')
+                existing = []
+                for file in os.listdir(directory):
+                    filename = os.fsdecode(file)
+                    if filename.endswith(".pkl"):
+                        filename = os.path.basename(filename)
+                        filename = os.path.splitext(filename)[0]
+                        existing += [filename]
+                        continue
+                    else:
+                        continue
+            except:
+                directory = os.fsencode(os.getcwd())
             Layout1 = [
                 [sg.Text('Select Existing Beam')],
                 [sg.Combo(existing,key='Reload_Ex',enable_events=True)],
                 [sg.Button('Continue',key='Reload_continue')]
             ]
+            Project = values['Project']
             window1 = sg.Window('Select Existing Beam',Layout1,resizable=True).finalize()
             window.close()
             while True:
@@ -998,8 +1347,9 @@ def Layouts(variable):
                 if event == sg.WINDOW_CLOSED or event == 'Quit':
                     break
                 elif event == 'Reload_continue':
-                    Beam = open_file(values['Reload_Ex'])
+                    Beam = open_file(values['Reload_Ex'],KeyCheck(variable,'Project'))
                     window1.close()
+                    Beam.values['Project'] = Project
                     Layouts(Beam.values)
                     break
         if event == 'calculate':
@@ -1047,66 +1397,20 @@ def Layouts(variable):
                 window['dCheck'].update('OK')
             else:
                 window['dCheck'].update('NG')
-        elif event == 'deflection':
-            PL = list(map(float,values['PL'].strip().split()))
-            L = list(map(float,values['L'].strip().split()))
-            UDL = list(map(float, values['UDL'].strip().split()))
-            fig_1 = Deflection.any_spans(UDL,PL,L,1)
-            fig = matplotlib.figure.Figure(figsize=(10, 4), dpi=100)
-            fig.add_subplot(111).plot(fig_1[0],fig_1[2],fig_1[0],[0]*3999,fig_1[0],fig_1[1])
-
-            fig_canvas_agg = draw_figure(window['canvas'].TKCanvas, fig)
-
-        elif event == 'SectionType':
-            if values[event] == 'T-section':
-                layout = [
-                    [sg.Text("Steel calculator", key='title')],
-                    [sg.Text('This calculator is not finished yet', key='t1')],
-                    [sg.Text('Available section types are Universal Columns, Universal Beams, and PFC\'s and RHS')],
-                    [sg.Text('Choose Section Type:')],
-                    [sg.Combo(SectionType, key='SectionType', enable_events=True, default_value='T-section',
-                              size=(30, 1)), sg.Text('fy'), sg.Input(key='fyf', default_text='300', size=(5, 1))],
-                    [sg.Text('Choose Section Size:')],
-                    [sg.Text('b'), sg.Input(key='b', enable_events=True, default_text='89',
-                                            size=(5, 1)), sg.Text('d'),
-                     sg.Input(key='d', enable_events=True, default_text='89',
-                              size=(5, 1)), sg.Text('t'),
-                     sg.Input(key='t', enable_events=True, default_text='5',
-                              size=(5, 1)),sg.Text('w'),sg.Input(key = 'w',default_text='10', size = (5,1))],
-                    [sg.Text('Input segment Length in metres below:', key='t2')],
-                    [sg.Column([[sg.Input(key='Length', size=(5, 1), default_text='1')],
-                    [sg.Text('Input alpha m below:', key='t3')],
-                    [sg.Input(key='alpha_m', size=(5, 1), default_text='1')],
-                    [sg.Combo(['FF', 'FP', 'FL', 'PP', 'PL', 'LL', 'FU', 'PU'], key='restraint', default_value='FP',
-                              enable_events=True)],
-                    [sg.Combo(['Shear centre', 'Top flange'], key='load_height_position', default_value='Shear centre',
-                              size=(15, 1))],
-                    [sg.Combo(['Within segment', 'At segment end'], key='longitudinal_position',
-                              default_value='Within segment',
-                              size=(15, 1))],
-                    [sg.Combo(['Any', 'None', 'One', 'Both'], key='ends_with_restraint', default_value='One')],
-                    [sg.Button('Calculate', key='calc_T_section', use_ttk_buttons=True)],
-                    [sg.Button('Back', key='back'), sg.Button('quit', key='b2', use_ttk_buttons=True)],
-                    [sg.Text('', key='result'), sg.Text('',key = 'shear')],
-                    [sg.Text('', key='PhiMsx')]]),sg.VSeparator(),sg.Image('Tsection.PNG')],
-                    [sg.Button('Print calculations', key = 'print_calcs')],
-                    [sg.Text('Type Job Name:'), sg.Input(default_text=values['SectionSize'], key = 'job_name')],
-                    [sg.Text('Choose destination:'), sg.Input(key='print_location',
-                                                              default_text=r'C:\Users\tduffett\PycharmProjects\pythonProject1'), sg.FolderBrowse()]
-                ]
-                window2 = sg.Window('Steel calculator', layout)
-                window.close()
-                window = window2
-            elif values[event] == 'Universal_Beam' or values[event] == 'Universal_Column' or values[event] == 'PFC' or values[event] == 'RHS' or values[event]=='SHS' or values[event]=='CHS':
-                item = values[event]
-                matrix = []
-                SectionNames = wb[item]
-                for x in SectionNames:
-                    matrix.append(x[0].value)
-                for i in range(7):
-                    matrix.pop(0)
-                SectionSize = list(filter(lambda item: item is not None, SectionSize))
-                window['SectionSize'].update(value=matrix[7], values=matrix)
+        if event == 'SectionType':
+            if values['SectionType'] == 'Universal_Beam' or values['SectionType']=='Universal_Column' or values['SectionType'] == 'PFC' or values['SectionType'] == 'RHS' or values['SectionType']=='SHS' or values['SectionType']=='CHS':
+                    item = values[event]
+                    matrix = []
+                    SectionNames = wb[item]
+                    for x in SectionNames:
+                        matrix.append(x[0].value)
+                    for i in range(7):
+                        matrix.pop(0)
+                    SectionSize = list(filter(lambda item: item is not None, SectionSize))
+                    window['SectionSize'].update(value=matrix[7], values=matrix)
+            elif values['SectionType'] == 'MGP10':
+                SectionSize = ['90x90','140x90','190x90','240x90']
+                window['SectionSize'].update(value='90x90', values=SectionSize)
 
         # window['b1'].update('OK')
         elif event == 'b2' or event == sg.WIN_CLOSED:
@@ -1162,10 +1466,6 @@ def steel_calculator():
             [sg.Text("Steel calculator", key='title')],
             [sg.Text('This calculator is not finished yet', key='t1')],
             [sg.Text('Available section types are Universal Columns, Universal Beams, and PFC\'s and RHS')],
-            [sg.Text('Choose Section Type:')],
-            [sg.Combo(SectionType, key='SectionType', enable_events=True, default_value=SectionType[0], size=(30, 1))],
-            [sg.Text('Choose Section Size:')],
-            [sg.Combo(SectionSize, key='SectionSize', default_value=SectionSize[0], size=(30, 1))],
             #[sg.Text('Input Total Length in metres below:', key='t2')],
             #[sg.Input(key='Length', size=(5, 1), default_text='1')],
             [sg.Text('Input segment Length in metres below:')],
