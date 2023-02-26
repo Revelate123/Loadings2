@@ -97,34 +97,36 @@ class Load_Case:
     def __init__(self,Name,Length,sample_rate,E,I,values):
         self.Name = Name
         self.Length = Length # In metres
-        self.Moment = [0] * int(Length * sample_rate + 1)
-        self.Shear = [0] * int(Length * sample_rate + 1)
-        self.Deflection = [0] * int(Length * sample_rate + 1)
+        self.Moment = [0] * round(Length * sample_rate + 1)
+        self.Shear = [0] * round(Length * sample_rate + 1)
+        self.Deflection = [0] * round(Length * sample_rate + 1)
         try:
             if values['CLength'] > 0:
-                self.Deflection = [0]*int(values['CLength']*sample_rate+ Length * sample_rate + 1)
-                self.Moment = [0] * int(values['CLength'] * sample_rate + Length * sample_rate + 1)
-                self.Shear = [0] * int(values['CLength'] * sample_rate + Length * sample_rate + 1)
+                self.Deflection = [0]*round(values['CLength']*sample_rate+ Length * sample_rate + 1)
+                self.Moment = [0] * round(values['CLength'] * sample_rate + Length * sample_rate + 1)
+                self.Shear = [0] * round(values['CLength'] * sample_rate + Length * sample_rate + 1)
         except:
             pass
         self.R1 = 0
         self.R2 = 0
         self.sample_rate = sample_rate
-        self.Marea = [0] * int(Length * sample_rate + 1)
+        self.Marea = [0] * round(Length * sample_rate + 1)
         self.E = E
         self.I = I
         self.values =values
     def __str__(self):
         return f"{self.R1} {self.R2} {self.sample_rate}"
     def UDL(self,a,b,w):
-        Moment = [0] * int(self.Length * self.sample_rate + 1)
-        Shear = [0] * int(self.Length * self.sample_rate + 1)
-        Deflection = [0] * int(self.Length * self.sample_rate + 1)
-        Marea = [0] * int(self.Length * self.sample_rate + 1)
-        c = self.Length - a - b
+        chec = round(self.Length * self.sample_rate + 1)
+        Moment = [0] * round(self.Length * self.sample_rate + 1)
+        Shear = [0] * round(self.Length * self.sample_rate + 1)
+        Deflection = [0] * round(self.Length * self.sample_rate + 1)
+        Marea = [0] * round(self.Length * self.sample_rate + 1)
+        c = self.Length - b
+        b = b - a
         R1 = w*b/2/self.Length*(2*c + b)
         R2 = w*b/2/self.Length*(2*a + b)
-        for i in range(int(self.Length*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + 1)):
             if i <= a*self.sample_rate:
                 Shear[i] = R1
                 Moment[i] = R1*i/self.sample_rate
@@ -135,7 +137,7 @@ class Load_Case:
                 Shear[i] = -R2
                 Moment[i] = R2*(self.Length - i/self.sample_rate)
                 #print(i)
-        for i in range(int(self.Length*self.sample_rate)):
+        for i in range(round(self.Length*self.sample_rate)):
             Marea[i] = np.trapz(np.array(Moment[:i]),dx=1/self.sample_rate)
         centroid = min(range(len(Marea)),key=lambda x:abs(Marea[x]-max(Marea)/2))
         x1 = lambda x: R1*x**2/2
@@ -154,7 +156,7 @@ class Load_Case:
             End_deflection = (self.Length - (y1[0] + y2[0] + y3[0])/(y1a[0]+y2a[0] + y3a[0]))*(y1a[0]+y2a[0] + y3a[0])
             End_deflection1 = Marea[int(self.Length * self.sample_rate)]*(self.Length - centroid/self.sample_rate)
             print(End_deflection1,End_deflection)
-            for i in range(int(self.Length*self.sample_rate)):
+            for i in range(round(self.Length*self.sample_rate)):
                 if i == 0:
                     Deflection[i] = 0
                 elif i < a*self.sample_rate:
@@ -179,14 +181,14 @@ class Load_Case:
                     Deflection[i] = (i / (self.Length * self.sample_rate) * End_deflection - (i/self.sample_rate  - (y1[0] + y2[0] + y3[0])/(y1a[0]+y2a[0] + y3a[0]))*(y1a[0]+y2a[0] + y3a[0]))/(self.E*self.I)*10**6
         except:
             pass
-        for i in range(int(self.Length*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + 1)):
             self.Moment[i] += -Moment[i]
             self.Shear[i] += Shear[i]
             self.Deflection[i] += -Deflection[i]
             self.Marea[i] += Marea[i]
         try:
 
-            for i in range(int(self.Length*self.sample_rate + 1),int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)):
+            for i in range(round(self.Length*self.sample_rate + 1),round(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)):
                 self.Deflection[i] += -(i / (self.Length * self.sample_rate) * End_deflection - (i/self.sample_rate  - (y1[0] + y2[0] + y3[0])/(y1a[0]+y2a[0] + y3a[0]))*(y1a[0]+y2a[0] + y3a[0]))/(self.E*self.I)*10**6
         except:
             pass
@@ -194,9 +196,10 @@ class Load_Case:
         self.R2 += R2
 
     def Cantilever_UDL(self,a,b,w):
-        Moment = [0] * int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
-        Shear = [0] * int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
-        Deflection = [0] * int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
+        b = b - a
+        Moment = [0] * round(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
+        Shear = [0] * round(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
+        Deflection = [0] * round(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)
         R1 = w*b*(a+b/2)/self.Length
         R2 = R1 + w*b
         x1a = lambda x: R1 * x
@@ -214,7 +217,7 @@ class Load_Case:
         try:
             End_deflection = (self.Length - (y1[0]) / (y1a[0])) * (
                         y1a[0])
-            for i in range(int(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)):
+            for i in range(round(self.Length * self.sample_rate + self.values['CLength']*self.sample_rate +1)):
                 if i == 0:
                     Moment[i] = R1 * (i / self.sample_rate)
                     Shear[i] = R1
@@ -248,7 +251,7 @@ class Load_Case:
                                                  y1a[0] + y2a[0] + y3a[0])) / (self.E * self.I) * 10 ** 6
         except:
             pass
-        for i in range(int(self.Length*self.sample_rate + self.values['CLength']*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + self.values['CLength']*self.sample_rate + 1)):
             self.Moment[i] += Moment[i]
             self.Shear[i] += -Shear[i]
             self.Deflection[i] += Deflection[i]
@@ -257,13 +260,13 @@ class Load_Case:
 
     def Point_load(self,a,P):
         b = self.Length - a
-        Moment = [0] * int(self.Length * self.sample_rate + 1)
-        Shear = [0] * int(self.Length * self.sample_rate + 1)
-        Deflection = [0] * int(self.Length * self.sample_rate + 1)
-        Marea = [0] * int(self.Length * self.sample_rate + 1)
+        Moment = [0] * round(self.Length * self.sample_rate + 1)
+        Shear = [0] * round(self.Length * self.sample_rate + 1)
+        Deflection = [0] * round(self.Length * self.sample_rate + 1)
+        Marea = [0] * round(self.Length * self.sample_rate + 1)
         R1 = P*b/self.Length
         R2 = P*a/self.Length
-        for i in range(int(self.Length*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + 1)):
             if a == 0 or b == 0:
                 Moment[i] = P * b * (i / self.sample_rate) / self.Length
                 Shear[i] = R1
@@ -280,7 +283,7 @@ class Load_Case:
                     Shear[i] = -R2
                     Deflection[i] = P * a * (self.Length - i / self.sample_rate) / (6 * self.Length * self.E * self.I) * (
                                 self.Length*2*(i/self.sample_rate) - a ** 2 - (i / self.sample_rate) ** 2) *10**6
-        for i in range(int(self.Length*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + 1)):
             self.Moment[i] += -Moment[i]
             self.Shear[i] += Shear[i]
             self.Deflection[i] += -Deflection[i]
@@ -288,13 +291,13 @@ class Load_Case:
         self.R1 += R1
         self.R2 += R2
     def Cantilever_Point_load(self,a,P):
-        Moment = [0] * int(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
-        Shear = [0] * int(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
-        Deflection = [0] * int(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
+        Moment = [0] * round(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
+        Shear = [0] * round(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
+        Deflection = [0] * round(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)
         R1 = P*a/self.Length
         R2 = P/self.Length*(self.Length + a)
         try:
-            for i in range(int(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)):
+            for i in range(round(self.Length * self.sample_rate + self.values['CLength'] * self.sample_rate + 1)):
                 if i <= self.Length*self.sample_rate:
                     Moment[i] = P*a*(i/self.sample_rate)/self.Length
                     Shear[i] = R1
@@ -308,7 +311,7 @@ class Load_Case:
                     Deflection[i] = (i/self.sample_rate - self.Length)/a * Deflect
         except:
             pass
-        for i in range(int(self.Length*self.sample_rate + self.values['CLength']*self.sample_rate + 1)):
+        for i in range(round(self.Length*self.sample_rate + self.values['CLength']*self.sample_rate + 1)):
             self.Moment[i] += Moment[i]
             self.Shear[i] += -Shear[i]
             self.Deflection[i] += Deflection[i]
@@ -502,6 +505,8 @@ def KeyCheck(Dictionary, string):
             output = 1
         elif output == 'False':
             output = 0
+        if output == '':
+            output = 0
     except KeyError:
         output = 0
     return output
@@ -559,7 +564,7 @@ def Cantilever_Layout(variable):
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'WOoPa'+str(i)),enable_events=True,key='WOoPa'+str(i))],
         ]),
         sg.Column([
-            [sg.Text('Extent m')],
+            [sg.Text('Stop m')],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'G1b'+str(i)),enable_events=True,key='G1b'+str(i))],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'G2b'+str(i)),enable_events=True,key='G2b'+str(i))],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'Qb'+str(i)),enable_events=True,key='Qb'+str(i))],
@@ -647,10 +652,17 @@ def draw_graph(Beam):
     #fig = plt.figure(figsize=(12,30),dpi=80)
     fig = matplotlib.figure.Figure(figsize=(12,30),dpi=80)
     try:
-        Length = np.arange(0,Beam.Length + Beam.values['CLength']+ 1/Beam.sample_rate,1/Beam.sample_rate)
+        #Length = np.arange(0,Beam.Length + Beam.values['CLength']+ 1/Beam.sample_rate,1/Beam.sample_rate)
+        Length = range(round(Beam.Length*Beam.sample_rate + Beam.values['CLength']*Beam.sample_rate + 1))
+        Length = [i / Beam.sample_rate for i in Length]
         Zeros = [0]*(int(Beam.Length + Beam.values['CLength'])*Beam.sample_rate+1)
     except:
-        Length =  np.arange(0,Beam.Length + 1/Beam.sample_rate,1/Beam.sample_rate)
+        chec = Beam.Length + 1/Beam.sample_rate
+        chec2 = Beam.Length
+        chec3 = 1/Beam.sample_rate
+        #Length =  np.arange(0,Beam.Length + 1/Beam.sample_rate,1/Beam.sample_rate)
+        Length = range(round(Beam.Length*Beam.sample_rate + 1))
+        Length = [i/Beam.sample_rate for i in Length]
         Zeros = [0] * (int(Beam.Length) * Beam.sample_rate+1)
 
     G_12_M = [1.2 * i for i in getattr(Beam, 'G2').Moment]
@@ -669,7 +681,20 @@ def draw_graph(Beam):
     G_135_M = [1.35 * i for i in getattr(Beam, 'G2').Moment]
     G_135_S = [1.35 * i for i in getattr(Beam, 'G2').Shear]
 
-    ax1 = fig.add_subplot(10,2,1)
+    if Beam.values['SectionType'] == 'MGP10' or  Beam.values['SectionType'] == 'MGP12':
+        if Beam.values['j2'] == '<15%':
+            G1_D = [2 * i for i in getattr(Beam, 'G1').Deflection]
+            G2_D = [2 * i for i in getattr(Beam,'G2').Deflection]
+            Q_D = [2 * i for i in getattr(Beam,'Q').Deflection]
+        else:
+            G1_D = [3 * i for i in getattr(Beam, 'G1').Deflection]
+            G2_D = [3 * i for i in getattr(Beam, 'G2').Deflection]
+            Q_D = [3 * i for i in getattr(Beam, 'Q').Deflection]
+    else:
+        G1_D = getattr(Beam,'G1').Deflection
+        G2_D = getattr(Beam, 'G2').Deflection
+        Q_D = getattr(Beam, 'Q').Deflection
+    ax1 = fig.add_subplot(14,2,1)
     ax1.set_ylabel('Moment [KNm]')
     ax1.set_xlabel('Length [m]')
     ax1.set_title('1.2G + 1.5Q MOMENT')
@@ -683,7 +708,7 @@ def draw_graph(Beam):
     except:
        pass
 
-    ax2 = fig.add_subplot(10,2,2)
+    ax2 = fig.add_subplot(14,2,2)
     ax2.set_ylabel('Shear [KNm]')
     ax2.set_xlabel('Length [m]')
     ax2.set_title('1.2G + 1.5Q Shear')
@@ -700,7 +725,7 @@ def draw_graph(Beam):
     except:
         pass
 
-    ax1a = fig.add_subplot(10, 2, 3)
+    ax1a = fig.add_subplot(14, 2, 3)
     ax1a.set_ylabel('Moment [KNm]')
     ax1a.set_xlabel('Length [m]')
     ax1a.set_title('1.2G + Wdown MOMENT')
@@ -716,7 +741,7 @@ def draw_graph(Beam):
         pass
 
 
-    ax2a = fig.add_subplot(10, 2, 4)
+    ax2a = fig.add_subplot(14, 2, 4)
     ax2a.set_ylabel('Shear [KNm]')
     ax2a.set_xlabel('Length [m]')
     ax2a.set_title('1.2G + Wdown Shear')
@@ -733,8 +758,41 @@ def draw_graph(Beam):
     except:
         pass
 
+    ax1ba = fig.add_subplot(14, 2, 5)
+    ax1ba.set_ylabel('Moment [KNm]')
+    ax1ba.set_xlabel('Length [m]')
+    ax1ba.set_title('0.9G + Wup MOMENT')
+    ax1ba.plot(Length, ULS_Wup_M)
+    ax1ba.text(0, -abs(1 / 10 * max(ULS_Wup_M, key=abs)), str(round(0.9 * Beam.G1.R1 - Beam.Wup.R1, 1)) + 'KN',
+               verticalalignment='top', horizontalalignment='center')
+    ax1ba.text(Beam.Length, -abs(1 / 10 * max(ULS_Wup_M, key=abs)),
+               str(round(0.9 * Beam.G1.R2 - Beam.Wup.R2, 1)) + 'KN',
+               verticalalignment='top', horizontalalignment='center')
+    ax1ba.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    try:
+        ax1ba.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
 
-    ax1b = fig.add_subplot(10, 2, 5)
+    ax2ba = fig.add_subplot(14, 2, 6)
+    ax2ba.set_ylabel('Shear [KNm]')
+    ax2ba.set_xlabel('Length [m]')
+    ax2ba.set_title('0.9G + Wup Shear')
+    ax2ba.plot(Length, ULS_Wup_S, 'b')
+    ax2ba.text(0, -abs(1 / 10 * max(ULS_Wup_S, key=abs)), str(round(0.9 * Beam.G1.R1 - Beam.Wup.R1, 1)) + 'KN',
+               verticalalignment='top', horizontalalignment='center')
+    ax2ba.text(Beam.Length, -abs(1 / 10 * max(ULS_Wup_S, key=abs)),
+               str(round(0.9 * Beam.G1.R2 - Beam.Wup.R2, 1)) + 'KN',
+               verticalalignment='top', horizontalalignment='center')
+    ax2ba.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax2ba.plot([0, 0], [0, ULS_Wup_S[0]], 'b')
+    ax2ba.plot([Length[-1], Length[-1]], [0, ULS_Wup_S[-1]], 'b')
+    try:
+        ax2ba.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+    ax1b = fig.add_subplot(14, 2, 7)
     ax1b.set_ylabel('Moment [KNm]')
     ax1b.set_xlabel('Length [m]')
     ax1b.set_title('1.35G MOMENT')
@@ -751,7 +809,7 @@ def draw_graph(Beam):
         pass
 
 
-    ax2b = fig.add_subplot(10, 2, 6)
+    ax2b = fig.add_subplot(14, 2, 8)
     ax2b.set_ylabel('Shear [KNm]')
     ax2b.set_xlabel('Length [m]')
     ax2b.set_title('1.35G Shear')
@@ -770,14 +828,16 @@ def draw_graph(Beam):
         pass
 
 
-    ax3a = fig.add_subplot(10, 2, 7)
+
+
+    ax3a = fig.add_subplot(14, 2, 9)
     ax3a.set_ylabel('Deflection [mm]')
     ax3a.set_xlabel('Length [m]')
     ax3a.set_title('G1 Deflection')
-    ax3a.plot(Length, getattr(Beam.G1, 'Deflection'))
-    ax3a.text(0, -abs(1 / 10 * max(getattr(Beam.G1, 'Deflection'), key=abs)), str(round(Beam.G1.R1, 1)) + 'KN',
+    ax3a.plot(Length, G1_D)
+    ax3a.text(0, -abs(1 / 10 * max(G1_D, key=abs)), str(round(Beam.G1.R1, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
-    ax3a.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.G1, 'Deflection'), key=abs)),
+    ax3a.text(Beam.Length, -abs(1 / 10 * max(G1_D, key=abs)),
               str(round(Beam.G1.R2, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
     ax3a.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
@@ -791,14 +851,14 @@ def draw_graph(Beam):
         pass
 
 
-    ax3 = fig.add_subplot(10, 2, 8)
+    ax3 = fig.add_subplot(14, 2, 10)
     ax3.set_ylabel('Deflection [mm]')
     ax3.set_xlabel('Length [m]')
     ax3.set_title('G2 Deflection')
-    ax3.plot(Length, getattr(Beam.G2,'Deflection'))
-    ax3.text(0, -abs(1 / 10 * max(getattr(Beam.G2, 'Deflection'), key=abs)), str(round(Beam.G2.R1, 1)) + 'KN',
+    ax3.plot(Length, G2_D)
+    ax3.text(0, -abs(1 / 10 * max(G2_D, key=abs)), str(round(Beam.G2.R1, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
-    ax3.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.G2, 'Deflection'), key=abs)),
+    ax3.text(Beam.Length, -abs(1 / 10 * max(G2_D, key=abs)),
               str(round(Beam.G2.R2, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
     ax3.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
@@ -812,14 +872,14 @@ def draw_graph(Beam):
         pass
 
 
-    ax4 = fig.add_subplot(10, 2, 9)
+    ax4 = fig.add_subplot(14, 2, 11)
     ax4.set_ylabel('Deflection [mm]')
     ax4.set_xlabel('Length [m]')
     ax4.set_title('Q Deflection')
     ax4.plot(Length, getattr(Beam.Q, 'Deflection'))
-    ax4.text(0, -abs(1 / 10 * max(getattr(Beam.Q, 'Deflection'), key=abs)), str(round(Beam.Q.R1, 1)) + 'KN',
+    ax4.text(0, -abs(1 / 10 * max(Q_D, key=abs)), str(round(Beam.Q.R1, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
-    ax4.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.Q, 'Deflection'), key=abs)),
+    ax4.text(Beam.Length, -abs(1 / 10 * max(Q_D,key=abs)),
               str(round(Beam.Q.R2, 1)) + 'KN',
               verticalalignment='top', horizontalalignment='center')
     ax4.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
@@ -833,7 +893,7 @@ def draw_graph(Beam):
         pass
 
 
-    ax5 = fig.add_subplot(10, 2, 10)
+    ax5 = fig.add_subplot(14, 2, 12)
     ax5.set_ylabel('Deflection [mm]')
     ax5.set_xlabel('Length [m]')
     ax5.set_title('Wind Down Deflection')
@@ -853,6 +913,49 @@ def draw_graph(Beam):
     except:
         pass
 
+    ax6 = fig.add_subplot(14, 2, 13)
+    ax6.set_ylabel('Deflection [mm]')
+    ax6.set_xlabel('Length [m]')
+    ax6.set_title('Wind up Deflection')
+    ax6.plot(Length, getattr(Beam.Wup, 'Deflection'))
+    ax6.text(0, -abs(1 / 10 * max(getattr(Beam.Wup, 'Deflection'), key=abs)), str(round(Beam.Wup.R1, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax6.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.Wup, 'Deflection'), key=abs)),
+             str(round(Beam.Wup.R2, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax6.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax6.plot([0, Beam.Length], [Beam.Length / 0.15, Beam.Length / 0.15], linestyle=(0, (5, 10)), color='red')
+    ax6.plot([0, Beam.Length], [-Beam.Length / 0.15, -Beam.Length / 0.15], linestyle=(0, (5, 10)), color='red')
+    ax6.plot([Beam.Length, max(Length)], [(max(Length) - Beam.Length) / 0.075, (max(Length) - Beam.Length) / 0.075],
+             linestyle=(0, (5, 10)), color='red')
+    ax6.plot([Beam.Length, max(Length)], [-(max(Length) - Beam.Length) / 0.075, -(max(Length) - Beam.Length) / 0.075],
+             linestyle=(0, (5, 10)), color='red')
+    try:
+        ax6.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
+
+    ax6a = fig.add_subplot(14, 2, 14)
+    ax6a.set_ylabel('Deflection [mm]')
+    ax6a.set_xlabel('Length [m]')
+    ax6a.set_title('Wind OoP Deflection')
+    ax6a.plot(Length, getattr(Beam.WOoP, 'Deflection'))
+    ax6a.text(0, -abs(1 / 10 * max(getattr(Beam.WOoP, 'Deflection'), key=abs)), str(round(Beam.WOoP.R1, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax6a.text(Beam.Length, -abs(1 / 10 * max(getattr(Beam.WOoP, 'Deflection'), key=abs)),
+             str(round(Beam.WOoP.R2, 1)) + 'KN',
+             verticalalignment='top', horizontalalignment='center')
+    ax6a.plot([0, Beam.Length], [0, 0], 'g', marker=6, markersize=15)
+    ax6a.plot([0, Beam.Length], [Beam.Length / 0.15, Beam.Length / 0.15], linestyle=(0, (5, 10)), color='red')
+    ax6a.plot([0, Beam.Length], [-Beam.Length / 0.15, -Beam.Length / 0.15], linestyle=(0, (5, 10)), color='red')
+    ax6a.plot([Beam.Length, max(Length)], [(max(Length) - Beam.Length) / 0.075, (max(Length) - Beam.Length) / 0.075],
+             linestyle=(0, (5, 10)), color='red')
+    ax6a.plot([Beam.Length, max(Length)], [-(max(Length) - Beam.Length) / 0.075, -(max(Length) - Beam.Length) / 0.075],
+             linestyle=(0, (5, 10)), color='red')
+    try:
+        ax6a.plot([Beam.Length, Beam.Length + Beam.values['CLength']], [0, 0], 'g')
+    except:
+        pass
 
     fig.tight_layout()
     return fig
@@ -877,8 +980,7 @@ def Layouts(variable):
         [sg.Text('E')],
         [sg.Text('Choose Section Type:')],
         [sg.Text('Choose Section Size:')],
-        #[sg.Text('b')],
-        #[sg.Text('d')],
+        [sg.Text('Initial Moisture content:')],
         [sg.Text('Ix')],
         [sg.Text('Iy')]
         ]),sg.Column([
@@ -887,12 +989,11 @@ def Layouts(variable):
             [sg.Input(size=(10,1),default_text=KeyCheck(variable,'E'),enable_events=True,key='E'),sg.Checkbox('Override for E',default=KeyCheck(variable,'E_check'),key='E_check',enable_events=True)],
             [sg.Combo(SectionType, key='SectionType', enable_events=True, default_value=KeyCheck(variable,'SectionType'), size=(30, 1))],  #SectionType[0]
             [sg.Combo(SectionSize, key='SectionSize',enable_events=True, default_value=KeyCheck(variable, 'SectionSize'), size=(30, 1))],  # SectionSize[0]
-            #[sg.Input(size=(10,1),default_text=KeyCheck(variable,'b'),enable_events=True,key='b')],
-            #[sg.Input(size=(10,1),default_text=KeyCheck(variable,'d'),enable_events=True,key='d')],
+            [sg.Combo(['<15%','>25%'],key='j2',default_value=KeyCheck(variable,'j2'),size=(10,1))],
             [sg.Input(size=(10,1),default_text=KeyCheck(variable,'Ix'),enable_events=True,key='Ix'),sg.Checkbox('Override for Ix',default=KeyCheck(variable,'Ix_check'),key = 'Ix_check',enable_events=True)],
             [sg.Input(size=(10, 1), default_text=KeyCheck(variable, 'Iy'), enable_events=True, key='Iy'),sg.Checkbox('Override for Iy',default=KeyCheck(variable,'Iy_check'),key = 'Iy_check',enable_events=True)]
         ]),sg.Column([[sg.Text('Current Project')],
-        [sg.Text('Base Wind pressure:')],
+        [sg.Text('Base Wind pressure (ULS):')],
         [sg.Text('Vertical Cp,e:')],
         [sg.Text('Vertical Cp,i:')],
         [sg.Text('Horizontal Cp,e:')],
@@ -953,7 +1054,7 @@ def Layouts(variable):
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'WOoPa'+str(i)),enable_events=True,key='WOoPa'+str(i))],
         ]),
         sg.Column([
-            [sg.Text('Extent m')],
+            [sg.Text('Stop m')],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'G1b'+str(i)),enable_events=True,key='G1b'+str(i))],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'G2b'+str(i)),enable_events=True,key='G2b'+str(i))],
                 [sg.Input(size=(5,1),default_text=KeyCheck(variable,'Qb'+str(i)),enable_events=True,key='Qb'+str(i))],
@@ -1160,7 +1261,7 @@ def Layouts(variable):
                 except:
                     MGP10 = {'90x90':[90,90],'140x90':[140,90],'190x90':[190,90],'240x90':[240,90],'300x90':[300,90]}
                     Timber = MGP10[values['SectionSize']]
-                    Ix = Timber[0]*Timber[1]**3/12 * 10 **-12
+                    Ix = Timber[1]*Timber[0]**3/12 * 10 **-12
             else:
                 Ix = values['Ix']*10**-12
             if values['Iy_check'] == False:
@@ -1173,7 +1274,7 @@ def Layouts(variable):
                     MGP10 = {'90x90': [90, 90], '140x90': [140, 90], '190x90': [190, 90], '240x90': [240, 90],
                              '300x90': [300, 90]}
                     Timber = MGP10[values['SectionSize']]
-                    Iy = Timber[1] * Timber[0] ** 3 / 12 * 10 ** -12
+                    Iy = Timber[0] * Timber[1] ** 3 / 12 * 10 ** -12
             else:
                 Iy = values['Iy']*10**-12
 
@@ -1252,7 +1353,7 @@ def Layouts(variable):
             except:
                 Cantilever = 0
             if values['E_check'] == True:
-                E = values['E']
+                E = values['E']*10**9
             else:
                 if values['SectionType'] == 'MGP10':
                     E = 10*10**9
@@ -1408,7 +1509,7 @@ def Layouts(variable):
                         matrix.pop(0)
                     SectionSize = list(filter(lambda item: item is not None, SectionSize))
                     window['SectionSize'].update(value=matrix[7], values=matrix)
-            elif values['SectionType'] == 'MGP10':
+            elif values['SectionType'] == 'MGP10' or values['SectionType'] == 'MGP12':
                 SectionSize = ['90x90','140x90','190x90','240x90']
                 window['SectionSize'].update(value='90x90', values=SectionSize)
 
