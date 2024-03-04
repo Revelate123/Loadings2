@@ -9,6 +9,7 @@ from pylatex import Document, PageStyle, Head, MiniPage, Foot, LargeText, \
 from pylatex.utils import italic, NoEscape, bold
 import subprocess
 import os
+
 wb = load_workbook(filename='Steel Design Calculator.xlsx')
 #The first function will return data about the section selected.
 def section_properties(SectionType, SectionSize, b,d,t):
