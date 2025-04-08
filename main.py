@@ -9,11 +9,11 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 import pickle as pickle
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import csv
 import Output
 import steel_functions as st
-import Timber as Timber1
+#import Timber as Timber1
 from pylatex import Document, Section, Subsection, Tabular, Math, TikZ, Axis, \
     Plot, Figure, Matrix, Alignat, MultiRow, MultiColumn
 from pylatex.utils import italic, NoEscape, bold
@@ -153,7 +153,7 @@ class Load_Case:
                 Moment[i] = R2 * (self.Length - i / self.sample_rate)
                 # print(i)
         for i in range(round(self.Length * self.sample_rate)):
-            Marea[i] = np.trapz(np.array(Moment[:i]), dx=1 / self.sample_rate)
+            Marea[i] = np.trapezoid(np.array(Moment[:i]), dx=1 / self.sample_rate)
         centroid = min(range(len(Marea)), key=lambda x: abs(Marea[x] - max(Marea) / 2))
         x1 = lambda x: R1 * x ** 2 / 2
         y1 = integrate.quad(x1, 0, a)
@@ -814,6 +814,7 @@ def draw_graph(Beam,i):
         j1 += 1
 
     fig.tight_layout()
+    
     getattr(Beam,'Combined_Deflections')[i] = fig
     return fig
 
@@ -1111,7 +1112,7 @@ def Layouts(variable):
             Canvas += [
                 [sg.Column(COL1), sg.Column(COL2), sg.Column(COL3), sg.Column(COL4), sg.Column(COL5), sg.Column(COL6),
                  sg.Column(COL7), sg.Column(COL8), sg.Column(COL9), sg.Column(COL10),sg.Column(COL11)]]
-            Canvas += [[sg.Canvas(key='controls_cv'+str(i))],[sg.Canvas(key='Graph'+str(i))]]
+            Canvas += [[sg.Canvas(key='controls_cv'+str(i))],[sg.Canvas(key='Graph'+str(i), size=(800,100))]]
         #except:
            # Load_Cases = 0;
 
@@ -1493,7 +1494,7 @@ def Layouts(variable):
             window['P/F_Check'].update(PassFail(Beam1))
             window.refresh()
             window['Column'].contents_changed()
-            Output.Main(Beam1)
+            #Output.Main(Beam1)
         if event == 'Reload':
             try:
                 directory = KeyCheck(variable, 'Project')
@@ -1644,7 +1645,4 @@ variable = variables('Loading')
 Layouts(variable)
 
 
-x = np.linspace(0, float(Beam.Length + Beam.values['CLength']),
-                int(Beam.Length * Beam.sample_rate + Beam.values['CLength'] * Beam.sample_rate + 1))
-plt.plot(x, Beam.Q.Shear)
-plt.show()
+

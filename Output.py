@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 import pickle as pickle
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import csv
 import steel_functions as st
 from pylatex import Document, Section, Subsection, Tabular, Math, TikZ, Axis, \
